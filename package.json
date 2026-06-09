@@ -1,6 +1,6 @@
 {
     "name": "@liria24/og-image",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "OG image generation server",
     "bugs": {
         "url": "https://github.com/liria24/og-image/issues"
