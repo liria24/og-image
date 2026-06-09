@@ -131,6 +131,6 @@ export default defineHandler(async (event) => {
 
     event.res.status = 202
     return {
-        path: `/images/${imageId}.png`,
+        url: `https://og.liria.me/images/${imageId}.png`,
     }
 })
