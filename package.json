@@ -1,0 +1,61 @@
+{
+    "name": "@liria24/og-image",
+    "version": "1.0.0",
+    "description": "OG image generation server",
+    "bugs": {
+        "url": "https://github.com/liria24/og-image/issues"
+    },
+    "license": "MIT",
+    "author": "Liria",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/liria24/og-image.git"
+    },
+    "type": "module",
+    "exports": {
+        ".": {
+            "import": "./dist/client.mjs",
+            "types": "./dist/client.d.mts"
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "scripts": {
+        "prepare": "nitro prepare",
+        "build:client": "tsdown",
+        "build": "bun run build:client && nitro build",
+        "dev": "nitro dev",
+        "preview": "wrangler --cwd .output dev",
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "fmt": "oxfmt",
+        "fmt:check": "oxfmt --check",
+        "check": "bun run prepare && bun run typecheck && bun run lint && bun run fmt:check && bun run build && wrangler --cwd .output deploy --dry-run",
+        "deploy": "bun run check && wrangler --cwd .output deploy",
+        "prepublish": "bun run check"
+    },
+    "dependencies": {
+        "ofetch": "^2.0.0-alpha.3"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20260608.1",
+        "@types/node": "^25.9.2",
+        "bumpp": "^11.1.0",
+        "http-status-codes": "^2.3.0",
+        "nitro": "3.0.260603-beta",
+        "oxfmt": "^0.54.0",
+        "oxlint": "^1.69.0",
+        "oxlint-tsgolint": "^0.23.0",
+        "takumi-js": "^1.7.0",
+        "taze": "^19.14.1",
+        "tsdown": "^0.22.2",
+        "typescript": "6.0.3",
+        "valibot": "^1.4.1",
+        "vitest": "^4.1.8",
+        "wrangler": "^4.98.0"
+    }
+}
