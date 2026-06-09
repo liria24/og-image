@@ -11,6 +11,9 @@
         "type": "git",
         "url": "git+https://github.com/liria24/og-image.git"
     },
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "exports": {
         ".": {
