@@ -13,16 +13,16 @@ const namesFromDirectory = (directory: URL, extension: string) =>
 export const svgAssetNames = () =>
     namesFromDirectory(new URL('./server/assets', projectUrl), '.svg')
 
-export const presetNames = () =>
-    namesFromDirectory(new URL('./server/presets', projectUrl), '.ts')
+export const presetNames = () => namesFromDirectory(new URL('./server/presets', projectUrl), '.ts')
 
-export const presetType = () => presetNames().map((name) => `'${name}'`).join(' | ') || 'never'
+export const presetType = () =>
+    presetNames()
+        .map((name) => `'${name}'`)
+        .join(' | ') || 'never'
 
 export const writeGeneratedTypes = () => {
     const imageEntries = svgAssetNames()
-        .map(
-            (name) => `        readonly ${JSON.stringify(name)}: OgImageAsset<'${name}'>`,
-        )
+        .map((name) => `        readonly ${JSON.stringify(name)}: OgImageAsset<'${name}'>`)
         .join('\n')
     const presets = presetType()
     const outputPath = generatedTypesPath()
