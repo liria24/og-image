@@ -8,12 +8,25 @@ export default definePreset({
         description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(240))),
     }),
     fonts: [
-        { family: 'Geist', options: { weight: '100..900' } },
-        { family: 'Noto Sans JP', options: { weight: '100..900' } },
+        {
+            family: 'Geist',
+            options: { weight: '100..900' },
+        },
+        {
+            family: 'Noto Sans JP',
+            options: { weight: '100..900' },
+        },
     ],
-    svgs: [{ src: images.avatio, color: '#18181b', width: 80, height: 80 }],
-    texts: ({ title, description }) => ({ title, description }),
-    content: ({ title, description }, { svgs }) => ({
+    svgs: [
+        {
+            src: images.avatio,
+            color: '#18181b',
+            width: 80,
+            height: 80,
+        },
+    ],
+    texts: (props) => ({ ...props }),
+    content: (texts, { svgs }) => ({
         type: 'container',
         style: {
             width: '100%',
@@ -47,7 +60,7 @@ export default definePreset({
                         children: [
                             {
                                 type: 'text',
-                                text: title,
+                                text: texts.title,
                                 style: {
                                     fontSize: '68px',
                                     fontWeight: 800,
@@ -56,11 +69,11 @@ export default definePreset({
                                     maxWidth: '960px',
                                 },
                             },
-                            ...(description
+                            ...(texts.description
                                 ? [
                                       {
                                           type: 'text' as const,
-                                          text: description,
+                                          text: texts.description,
                                           style: {
                                               fontSize: '34px',
                                               fontWeight: 500,

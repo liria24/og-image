@@ -8,26 +8,43 @@ export default definePreset({
         description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(240))),
     }),
     fonts: [
-        { family: 'Geist', options: { weight: '100..900' } },
-        { family: 'Noto Sans JP', options: { weight: '100..900' } },
+        {
+            family: 'Geist',
+            options: { weight: '100..900' },
+        },
+        {
+            family: 'Noto Sans JP',
+            options: { weight: '100..900' },
+        },
     ],
-    svgs: [{ src: images.liria, id: 'liria-logo', color: '#ffffff', width: 80, height: 80 }],
-    texts: ({ title, description }) => ({ title, description, brand: 'Liria' }),
-    content: ({ title, description, brand }, { svgs }) => ({
+    svgs: [
+        {
+            src: images.liria,
+            color: '#ffffff',
+            width: 80,
+            height: 80,
+        },
+    ],
+    texts: ({ title, description }) => ({
+        title,
+        description,
+        brand: 'Liria',
+    }),
+    content: (texts, { svgs }) => ({
         type: 'container',
         style: {
             width: '100%',
             height: '100%',
             display: 'flex',
-            flexDirection: title ? 'column' : 'row',
-            justifyContent: title ? 'space-between' : 'center',
-            alignItems: title ? 'stretch' : 'center',
+            flexDirection: texts.title ? 'column' : 'row',
+            justifyContent: texts.title ? 'space-between' : 'center',
+            alignItems: texts.title ? 'stretch' : 'center',
             padding: '72px',
             backgroundColor: '#000000',
             color: '#ffffff',
             fontFamily: 'Geist, Noto Sans JP',
         },
-        children: title
+        children: texts.title
             ? [
                   {
                       type: 'container',
@@ -39,7 +56,7 @@ export default definePreset({
                       children: [
                           {
                               type: 'text',
-                              text: title,
+                              text: texts.title,
                               style: {
                                   fontSize: '68px',
                                   fontWeight: 800,
@@ -48,11 +65,11 @@ export default definePreset({
                                   maxWidth: '960px',
                               },
                           },
-                          ...(description
+                          ...(texts.description
                               ? [
                                     {
                                         type: 'text' as const,
-                                        text: description,
+                                        text: texts.description,
                                         style: {
                                             fontSize: '34px',
                                             fontWeight: 500,
@@ -79,7 +96,7 @@ export default definePreset({
                   svgs.liria,
                   {
                       type: 'text',
-                      text: brand,
+                      text: texts.brand,
                       style: {
                           fontSize: '68px',
                           fontWeight: 800,
