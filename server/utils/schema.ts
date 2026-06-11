@@ -11,9 +11,7 @@ export type OgImageDescriptor = v.InferOutput<typeof ogImageDescriptorBaseSchema
 export const objectSchemaWithSecret = <const T extends v.ObjectEntries & { secret?: never } = {}>(
     value?: T,
 ) => {
-    const secret = v.pipe(
-        v.string(),
-        v.check((s) => import.meta.dev || s === (process.env.OG_IMAGE_SECRET ?? '')),
-    )
+    const s = process.env.OG_IMAGE_SECRET ?? ''
+    const secret = import.meta.dev ? v.optional(v.literal(s), s) : v.literal(s)
     return v.object({ ...(value ?? {}), secret } as Omit<T, 'secret'> & { secret: typeof secret })
 }
