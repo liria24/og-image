@@ -1,7 +1,11 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'nitro'
+
+import { presetNames, svgAssetNames, writeGeneratedTypes } from './scripts/generated-types.ts'
+
+writeGeneratedTypes()
 
 export default defineConfig({
     compatibilityDate: '2026-06-03',
@@ -68,27 +72,20 @@ export default defineConfig({
 
     virtual: {
         '#images': () => {
-            const assetsDir = fileURLToPath(new URL('./server/assets', import.meta.url))
-            const entries = readdirSync(assetsDir)
-                .filter((file) => file.endsWith('.svg'))
-                .map((file) => {
-                    const key = file.replace(/\.svg$/, '')
-                    const svgPath = fileURLToPath(
-                        new URL(`./server/assets/${file}`, import.meta.url),
-                    )
-                    const svg = readFileSync(svgPath, 'utf8')
-                    return [
-                        JSON.stringify(key),
-                        `{ src: ${JSON.stringify(key)}, svg: ${JSON.stringify(svg)} }`,
-                    ].join(': ')
-                })
+            const entries = svgAssetNames().map((key) => {
+                const svgPath = fileURLToPath(
+                    new URL(`./server/assets/${key}.svg`, import.meta.url),
+                )
+                const svg = readFileSync(svgPath, 'utf8')
+                return [
+                    JSON.stringify(key),
+                    `{ src: ${JSON.stringify(key)}, svg: ${JSON.stringify(svg)} }`,
+                ].join(': ')
+            })
             return `export const images = { ${entries.join(', ')} }`
         },
         '#presets': () => {
-            const presetsDir = fileURLToPath(new URL('./server/presets', import.meta.url))
-            const names = readdirSync(presetsDir)
-                .filter((f) => f.endsWith('.ts'))
-                .map((f) => f.replace(/\.ts$/, ''))
+            const names = presetNames()
             const imports = names
                 .map((name, i) =>
                     [

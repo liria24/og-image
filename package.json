@@ -1,6 +1,6 @@
 {
     "name": "@liria24/og-image",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "description": "OG image generation server",
     "bugs": {
         "url": "https://github.com/liria24/og-image/issues"
@@ -45,20 +45,20 @@
         "ofetch": "^2.0.0-alpha.3"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20260608.1",
-        "@types/node": "^25.9.2",
+        "@cloudflare/workers-types": "^4.20260610.1",
+        "@types/node": "^25.9.3",
         "bumpp": "^11.1.0",
         "http-status-codes": "^2.3.0",
-        "nitro": "3.0.260603-beta",
+        "nitro": "3.0.260610-beta",
         "oxfmt": "^0.54.0",
         "oxlint": "^1.69.0",
         "oxlint-tsgolint": "^0.23.0",
-        "takumi-js": "^1.7.0",
+        "takumi-js": "^1.8.1",
         "taze": "^19.14.1",
         "tsdown": "^0.22.2",
         "typescript": "6.0.3",
         "valibot": "^1.4.1",
         "vitest": "^4.1.8",
-        "wrangler": "^4.98.0"
+        "wrangler": "^4.99.0"
     }
 }

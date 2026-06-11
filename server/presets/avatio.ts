@@ -2,26 +2,31 @@ import * as v from 'valibot'
 
 import { images } from '#images'
 
-const footerLogo = defineSvgImage(images.avatio!, {
-    src: 'avatio-footer-logo',
-    color: '#18181b',
-    width: 80,
-    height: 80,
-})
-
 export default definePreset({
-    version: 'v1',
     props: v.object({
         title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
         description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(240))),
     }),
     fonts: [
-        { family: 'Geist', options: { weight: '100..900' } },
-        { family: 'Noto Sans JP', options: { weight: '100..900' } },
+        {
+            family: 'Geist',
+            options: { weight: '100..900' },
+        },
+        {
+            family: 'Noto Sans JP',
+            options: { weight: '100..900' },
+        },
     ],
-    persistentImages: [footerLogo.image],
-    fontText: ({ title, description }) => [title, description],
-    content: ({ title, description }) => ({
+    svgs: [
+        {
+            src: images.avatio,
+            color: '#18181b',
+            width: 80,
+            height: 80,
+        },
+    ],
+    texts: (props) => ({ ...props }),
+    content: (texts, { svgs }) => ({
         type: 'container',
         style: {
             width: '100%',
@@ -55,7 +60,7 @@ export default definePreset({
                         children: [
                             {
                                 type: 'text',
-                                text: title,
+                                text: texts.title,
                                 style: {
                                     fontSize: '68px',
                                     fontWeight: 800,
@@ -64,11 +69,11 @@ export default definePreset({
                                     maxWidth: '960px',
                                 },
                             },
-                            ...(description
+                            ...(texts.description
                                 ? [
                                       {
                                           type: 'text' as const,
-                                          text: description,
+                                          text: texts.description,
                                           style: {
                                               fontSize: '34px',
                                               fontWeight: 500,
@@ -88,7 +93,7 @@ export default definePreset({
                             alignItems: 'center',
                             justifyContent: 'flex-end',
                         },
-                        children: [footerLogo.node],
+                        children: [svgs.avatio],
                     },
                 ],
             },

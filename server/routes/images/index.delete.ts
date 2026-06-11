@@ -1,13 +1,10 @@
 import { defineHandler } from 'nitro'
 import { useStorage } from 'nitro/storage'
-import * as v from 'valibot'
 
 const cleanupKeyPrefixes = ['descriptor:', 'png:', 'failed:'] as const
 
 const request = {
-    body: v.object({
-        secret: v.literal(process.env.OG_IMAGE_SECRET ?? ''),
-    }),
+    body: objectSchemaWithSecret(),
 }
 
 export default defineHandler(async (event) => {
