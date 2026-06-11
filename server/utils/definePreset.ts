@@ -10,6 +10,8 @@ import type {
 } from 'takumi-js/wasm'
 import type { GenericSchema, InferOutput } from 'valibot'
 
+import { images as importImages } from '#images'
+
 type PresetRenderOptions = Omit<RenderOptions, 'width' | 'height' | 'format' | 'devicePixelRatio'>
 type PresetPropsSchema = GenericSchema
 type TextValue = string | null | undefined | false
@@ -52,7 +54,7 @@ interface DefinePresetOptions<
     fonts: readonly GoogleFontConfig[]
     texts: (props: InferOutput<TPropsSchema>) => TTexts
     content: (texts: TTexts, context: PresetContentContext<TSvgs>) => Node
-    svgs?: TSvgs
+    svgs?: (images: typeof importImages) => TSvgs
     width?: number
     height?: number
     format?: RenderOptions['format']
@@ -196,7 +198,7 @@ export const definePreset = <
         texts,
         content,
         fonts: configuredFonts,
-        svgs = [] as unknown as TSvgs,
+        svgs = () => [],
         width = 1200,
         height = 630,
         format = 'png',
@@ -207,7 +209,7 @@ export const definePreset = <
     } = options
 
     const fonts = normalizeGoogleFontConfigs(configuredFonts)
-    const svgImages = svgs.map(({ src, ...svg }) => defineSvgImage(src, svg))
+    const svgImages = svgs(importImages).map(({ src, ...svg }) => defineSvgImage(src, svg))
     const svgNodes = Object.fromEntries(
         svgImages.map((svg) => [svg.key, svg.node]),
     ) as SvgImageNodes<TSvgs>
