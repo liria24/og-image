@@ -81,7 +81,7 @@ export interface OgImagePreset {
 type DefinedOgImagePreset<
     TPropsSchema extends PresetPropsSchema,
     TTexts extends Texts,
-    TSvgs extends readonly DefinePresetSvgImageOptions[],
+    _TSvgs extends readonly DefinePresetSvgImageOptions[],
 > = Omit<OgImagePreset, 'slug' | 'props' | 'texts' | 'fontText' | 'content'> & {
     props: TPropsSchema
     texts: (props: InferOutput<TPropsSchema>) => TTexts
@@ -108,7 +108,10 @@ const stableValue = (value: unknown): unknown => {
 }
 
 const createVersion = (options: unknown) =>
-    `v-${createHash('sha256').update(JSON.stringify(stableValue(options))).digest('hex').slice(0, 12)}`
+    `v-${createHash('sha256')
+        .update(JSON.stringify(stableValue(options)))
+        .digest('hex')
+        .slice(0, 12)}`
 
 const setStyleColor = (style: string, color: string) => {
     const normalizedStyle = style.trim().replace(/;+$/, '')
