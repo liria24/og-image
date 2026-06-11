@@ -2,7 +2,7 @@ import { ofetch } from 'ofetch'
 
 import type { Preset } from '#presets'
 
-export interface RequestOgImageOptions<TProps = unknown> {
+interface ClientOptions {
     /**
      * @default https://og.liria.me
      */
@@ -11,6 +11,9 @@ export interface RequestOgImageOptions<TProps = unknown> {
      * @default process.env.OG_IMAGE_SECRET
      */
     secret?: string
+}
+
+export interface RequestOptions<TProps = unknown> extends ClientOptions {
     preset: Preset
     props: TProps
 }
@@ -19,12 +22,42 @@ export interface IssueImageResponse {
     url: string
 }
 
-export const requestOgImage = async <TProps = unknown>({
+export interface RevokeByImageIdOptions extends ClientOptions {
+    imageId: string
+    preset?: never
+}
+
+export interface RevokeByPresetOptions extends ClientOptions {
+    imageId?: never
+    preset: Preset
+}
+
+export type RevokeOptions = RevokeByImageIdOptions | RevokeByPresetOptions
+
+export interface RevokeByImageIdResponse {
+    imageId: string
+    deleted: number
+}
+
+export interface RevokeByPresetResponse {
+    preset: Preset
+    imageIds: string[]
+    deleted: number
+}
+
+export type RevokeResponse = RevokeByImageIdResponse | RevokeByPresetResponse
+
+const defaultEndpoint = 'https://og.liria.me'
+
+const imageIdPathSegment = (imageId: string) =>
+    `${encodeURIComponent(imageId.replace(/\.png$/i, ''))}.png`
+
+export const request = async <TProps = unknown>({
     preset,
     props,
-    endpoint = 'https://og.liria.me',
+    endpoint = defaultEndpoint,
     secret = process.env.OG_IMAGE_SECRET || '',
-}: RequestOgImageOptions<TProps>) =>
+}: RequestOptions<TProps>) =>
     ofetch<IssueImageResponse>(`/images/${encodeURIComponent(preset)}`, {
         baseURL: endpoint,
         method: 'POST',
@@ -32,3 +65,20 @@ export const requestOgImage = async <TProps = unknown>({
         body: { secret, props },
         retry: 3,
     })
+
+export const revoke = async (options: RevokeOptions) => {
+    const endpoint = options.endpoint ?? defaultEndpoint
+    const secret = options.secret ?? process.env.OG_IMAGE_SECRET ?? ''
+    const path =
+        options.imageId !== undefined
+            ? `/images/${imageIdPathSegment(options.imageId)}`
+            : `/images/${encodeURIComponent(options.preset)}`
+
+    return ofetch<RevokeResponse>(path, {
+        baseURL: endpoint,
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: { secret },
+        retry: 3,
+    })
+}

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { googleFont } from 'takumi-js/helpers'
 import * as v from 'valibot'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { definePreset } from './definePreset'
 import { loadFontsForText } from './render'
