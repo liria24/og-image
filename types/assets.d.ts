@@ -14,14 +14,3 @@ declare module '#fonts/*' {
     export const fontFamily: string
     export const fonts: readonly FontAssetDefinition[]
 }
-
-declare module '#images' {
-    interface OgImageAsset<TSrc extends string = string> {
-        src: TSrc
-        svg: string
-    }
-
-    export const images: {
-        readonly avatio: OgImageAsset<'avatio'>
-    }
-}

@@ -1,17 +1,11 @@
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'tsdown'
 
-const presetNames = () => {
-    const presetsDir = fileURLToPath(new URL('./server/presets', import.meta.url))
-    return readdirSync(presetsDir)
-        .filter((file) => file.endsWith('.ts'))
-        .map((file) => file.replace(/\.ts$/, ''))
-        .sort((a, b) => a.localeCompare(b))
-}
+import { presetType, writeGeneratedTypes } from './scripts/generated-types.ts'
 
-const presetType = () => presetNames().map((name) => `'${name}'`).join(' | ') || 'never'
+writeGeneratedTypes()
 
 export default defineConfig({
     entry: ['src/client.ts'],
