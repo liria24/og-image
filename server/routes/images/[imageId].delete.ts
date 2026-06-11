@@ -12,9 +12,7 @@ const request = {
             v.transform((v) => v.replace(/\.png$/i, '')),
         ),
     }),
-    body: v.object({
-        secret: v.literal(process.env.OG_IMAGE_SECRET ?? ''),
-    }),
+    body: objectSchemaWithSecret(),
 }
 
 export default defineHandler(async (event) => {

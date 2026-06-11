@@ -11,8 +11,7 @@ const request = {
     params: v.object({
         slug: v.union([...allPresets.map((preset) => v.literal(preset.slug))]),
     }),
-    body: v.object({
-        secret: v.literal(process.env.OG_IMAGE_SECRET ?? ''),
+    body: objectSchemaWithSecret({
         props: v.unknown(),
     }),
 }
