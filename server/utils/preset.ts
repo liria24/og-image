@@ -4,8 +4,8 @@ const presetMap: Record<string, OgImagePreset> = Object.fromEntries(
     allPresets.map((preset) => [preset.slug, preset]),
 )
 
-export const getPreset = (descriptor: OgImageDescriptor): OgImagePreset => {
+export const getPreset = (descriptor: Pick<OgImageDescriptor, 'slug'>): OgImagePreset => {
     const preset = presetMap[descriptor.slug]
-    if (!preset || preset.version !== descriptor.version) throw new Error('Preset not found')
+    if (!preset) throw new Error('Preset not found')
     return preset
 }

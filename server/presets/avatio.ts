@@ -2,15 +2,7 @@ import * as v from 'valibot'
 
 import { images } from '#images'
 
-const footerLogo = defineSvgImage(images.avatio!, {
-    src: 'avatio-footer-logo',
-    color: '#18181b',
-    width: 80,
-    height: 80,
-})
-
 export default definePreset({
-    version: 'v1',
     props: v.object({
         title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
         description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(240))),
@@ -19,9 +11,9 @@ export default definePreset({
         { family: 'Geist', options: { weight: '100..900' } },
         { family: 'Noto Sans JP', options: { weight: '100..900' } },
     ],
-    persistentImages: [footerLogo.image],
-    fontText: ({ title, description }) => [title, description],
-    content: ({ title, description }) => ({
+    svgs: [{ src: images.avatio, color: '#18181b', width: 80, height: 80 }],
+    texts: ({ title, description }) => ({ title, description }),
+    content: ({ title, description }, { svgs }) => ({
         type: 'container',
         style: {
             width: '100%',
@@ -88,7 +80,7 @@ export default definePreset({
                             alignItems: 'center',
                             justifyContent: 'flex-end',
                         },
-                        children: [footerLogo.node],
+                        children: [svgs.avatio],
                     },
                 ],
             },

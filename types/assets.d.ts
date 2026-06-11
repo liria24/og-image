@@ -16,10 +16,12 @@ declare module '#fonts/*' {
 }
 
 declare module '#images' {
-    interface OgImageAsset {
-        src: string
+    interface OgImageAsset<TSrc extends string = string> {
+        src: TSrc
         svg: string
     }
 
-    export const images: Record<string, OgImageAsset>
+    export const images: {
+        readonly avatio: OgImageAsset<'avatio'>
+    }
 }
