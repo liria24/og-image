@@ -13,10 +13,7 @@ const request = {
         version: v.string(),
     }),
     body: objectSchemaWithSecret({
-        props: v.object({
-            title: v.string(),
-            description: v.string(),
-        }),
+        props: v.unknown(),
     }),
 }
 
