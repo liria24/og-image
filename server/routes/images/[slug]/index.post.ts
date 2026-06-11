@@ -10,7 +10,6 @@ const FAILED_TTL_SECONDS = 60 * 5 // 5 minutes
 const request = {
     params: v.object({
         slug: v.union([...allPresets.map((preset) => v.literal(preset.slug))]),
-        version: v.string(),
     }),
     body: objectSchemaWithSecret({
         props: v.unknown(),
@@ -41,10 +40,10 @@ const canonicalize = (value: unknown): CanonicalValue => {
 }
 
 export default defineHandler(async (event) => {
-    const { slug, version } = await validateParams(event, request.params)
+    const { slug } = await validateParams(event, request.params)
     const { props } = await validateBody(event, request.body)
 
-    const preset = getPreset({ slug, version })
+    const preset = getPreset({ slug })
 
     const propsResult = v.safeParse(preset.props, props)
     if (!propsResult.success) throw serverError.badRequest()

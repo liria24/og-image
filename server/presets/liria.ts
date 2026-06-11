@@ -2,15 +2,7 @@ import * as v from 'valibot'
 
 import { images } from '#images'
 
-const logo = defineSvgImage(images.liria!, {
-    src: 'liria-logo',
-    color: '#ffffff',
-    width: 80,
-    height: 80,
-})
-
 export default definePreset({
-    version: 'v1',
     props: v.object({
         title: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120))),
         description: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(240))),
@@ -19,9 +11,9 @@ export default definePreset({
         { family: 'Geist', options: { weight: '100..900' } },
         { family: 'Noto Sans JP', options: { weight: '100..900' } },
     ],
-    persistentImages: [logo.image],
-    fontText: ({ title, description }) => [title, description, 'Liria'],
-    content: ({ title, description }) => ({
+    svgs: [{ src: images.liria, id: 'liria-logo', color: '#ffffff', width: 80, height: 80 }],
+    texts: ({ title, description }) => ({ title, description, brand: 'Liria' }),
+    content: ({ title, description, brand }, { svgs }) => ({
         type: 'container',
         style: {
             width: '100%',
@@ -80,14 +72,14 @@ export default definePreset({
                           alignItems: 'center',
                           justifyContent: 'flex-end',
                       },
-                      children: [logo.node],
+                      children: [svgs.liria],
                   },
               ]
             : [
-                  logo.node,
+                  svgs.liria,
                   {
                       type: 'text',
-                      text: 'Liria',
+                      text: brand,
                       style: {
                           fontSize: '68px',
                           fontWeight: 800,

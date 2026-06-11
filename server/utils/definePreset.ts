@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+
+import { Renderer } from '@takumi-rs/wasm'
 import type {
     ImageNode,
     ImageSource,
@@ -9,20 +12,45 @@ import type { GenericSchema, InferOutput } from 'valibot'
 
 type PresetRenderOptions = Omit<RenderOptions, 'width' | 'height' | 'format' | 'devicePixelRatio'>
 type PresetPropsSchema = GenericSchema
-type FontTextValue = string | null | undefined | false
-type FontText = string | readonly FontTextValue[]
+type TextValue = string | null | undefined | false
+type Texts = Record<string, TextValue>
+type SvgImageKey<T> = T extends { src: infer TSrc extends string } ? TSrc : string
+type SvgImageNodes<TSvgs extends readonly DefinePresetSvgImageOptions[]> = {
+    readonly [TSvg in TSvgs[number] as SvgImageKey<TSvg['src']>]: ImageNode
+}
 
 export interface GoogleFontConfig {
     family: string
     options?: Omit<import('takumi-js/helpers').GoogleFontOptions, 'text'>
 }
 
-interface DefinePresetOptions<TPropsSchema extends PresetPropsSchema> {
-    version: string
+interface SvgImageAsset {
+    src: string
+    svg: string
+}
+
+interface DefinePresetSvgImageOptions {
+    src: SvgImageAsset
+    color: string
+    width: number
+    height: number
+    id?: string
+}
+
+interface PresetContentContext<TSvgs extends readonly DefinePresetSvgImageOptions[]> {
+    svgs: SvgImageNodes<TSvgs>
+}
+
+interface DefinePresetOptions<
+    TPropsSchema extends PresetPropsSchema,
+    TTexts extends Texts,
+    TSvgs extends readonly DefinePresetSvgImageOptions[],
+> {
     props: TPropsSchema
     fonts: readonly GoogleFontConfig[]
-    fontText: (props: InferOutput<TPropsSchema>) => FontText
-    content: (props: InferOutput<TPropsSchema>) => Node
+    texts: (props: InferOutput<TPropsSchema>) => TTexts
+    content: (texts: TTexts, context: PresetContentContext<TSvgs>) => Node
+    svgs?: TSvgs
     width?: number
     height?: number
     format?: RenderOptions['format']
@@ -43,63 +71,44 @@ export interface OgImagePreset {
     version: string
     props: PresetPropsSchema
     fonts: readonly GoogleFontConfig[]
+    texts: (props: unknown) => Texts
     fontText: (props: unknown) => string
-    persistentImages?: ConstructRendererOptions['persistentImages']
+    getRenderer: () => Renderer
     renderOptions: PresetRenderConfig
     content: (props: unknown) => Node
 }
 
-type DefinedOgImagePreset<TPropsSchema extends PresetPropsSchema> = Omit<
-    OgImagePreset,
-    'slug' | 'props' | 'fontText' | 'content'
-> & {
+type DefinedOgImagePreset<
+    TPropsSchema extends PresetPropsSchema,
+    TTexts extends Texts,
+    TSvgs extends readonly DefinePresetSvgImageOptions[],
+> = Omit<OgImagePreset, 'slug' | 'props' | 'texts' | 'fontText' | 'content'> & {
     props: TPropsSchema
+    texts: (props: InferOutput<TPropsSchema>) => TTexts
     fontText: (props: InferOutput<TPropsSchema>) => string
     content: (props: InferOutput<TPropsSchema>) => Node
 }
 
-const normalizeFontText = (value: FontText) =>
-    typeof value === 'string'
-        ? value
-        : value.filter((text): text is string => Boolean(text)).join('\n')
+const normalizeFontText = (texts: Texts) =>
+    Object.values(texts)
+        .filter((text): text is string => Boolean(text))
+        .join('\n')
 
-export const definePreset = <const TPropsSchema extends PresetPropsSchema>(
-    options: DefinePresetOptions<TPropsSchema>,
-): DefinedOgImagePreset<TPropsSchema> => {
-    const {
-        fontText,
-        width = 1200,
-        height = 630,
-        format = 'png',
-        devicePixelRatio = 1,
-        renderOptions,
-        ...preset
-    } = options
+const stableValue = (value: unknown): unknown => {
+    if (typeof value === 'function') return value.toString()
+    if (value === null || typeof value !== 'object') return value
+    if (Array.isArray(value)) return value.map((item) => stableValue(item))
 
-    return {
-        ...preset,
-        fontText: (props) => normalizeFontText(fontText(props)),
-        renderOptions: {
-            width,
-            height,
-            format,
-            devicePixelRatio,
-            ...renderOptions,
-        },
-    }
+    return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+            .filter(([, entry]) => entry !== undefined)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, entry]) => [key, stableValue(entry)]),
+    )
 }
 
-interface SvgImageAsset {
-    src: string
-    svg: string
-}
-
-interface DefineSvgImageOptions {
-    color: string
-    width: number
-    height: number
-    src?: string
-}
+const createVersion = (options: unknown) =>
+    `v-${createHash('sha256').update(JSON.stringify(stableValue(options))).digest('hex').slice(0, 12)}`
 
 const setStyleColor = (style: string, color: string) => {
     const normalizedStyle = style.trim().replace(/;+$/, '')
@@ -133,28 +142,84 @@ const withSvgRootColor = (svg: string, color: string) => {
     return replaced
 }
 
-export const defineSvgImage = (
-    asset: SvgImageAsset,
-    { color, height, src = asset.src, width }: DefineSvgImageOptions,
-): { image: ImageSource; node: ImageNode } => ({
+const defineSvgImage = <const TAsset extends SvgImageAsset>(
+    asset: TAsset,
+    { color, height, id = asset.src, width }: Omit<DefinePresetSvgImageOptions, 'src'>,
+): { key: SvgImageKey<TAsset>; image: ImageSource; node: ImageNode } => ({
+    key: asset.src as SvgImageKey<TAsset>,
     image: {
-        src,
+        src: id,
         data: new TextEncoder().encode(withSvgRootColor(asset.svg, color)),
     },
     node: {
         type: 'image',
-        src,
+        src: id,
         width,
         height,
     },
 })
 
-export const withPresetId = <const TPropsSchema extends PresetPropsSchema>(
-    preset: DefinedOgImagePreset<TPropsSchema>,
+export const definePreset = <
+    const TPropsSchema extends PresetPropsSchema,
+    const TTexts extends Texts,
+    const TSvgs extends readonly DefinePresetSvgImageOptions[] = [],
+>(
+    options: DefinePresetOptions<TPropsSchema, TTexts, TSvgs>,
+): DefinedOgImagePreset<TPropsSchema, TTexts, TSvgs> => {
+    const {
+        texts,
+        content,
+        svgs = [] as unknown as TSvgs,
+        width = 1200,
+        height = 630,
+        format = 'png',
+        devicePixelRatio = 1,
+        persistentImages = [],
+        renderOptions,
+        ...preset
+    } = options
+
+    const svgImages = svgs.map(({ src, ...svg }) => defineSvgImage(src, svg))
+    const svgNodes = Object.fromEntries(
+        svgImages.map((svg) => [svg.key, svg.node]),
+    ) as SvgImageNodes<TSvgs>
+    const allPersistentImages = [...persistentImages, ...svgImages.map((svg) => svg.image)]
+    let renderer: Renderer | undefined
+
+    return {
+        ...preset,
+        version: createVersion(options),
+        texts,
+        fontText: (props) => normalizeFontText(texts(props)),
+        getRenderer: () => {
+            renderer ??= new Renderer({
+                loadDefaultFonts: false,
+                persistentImages: allPersistentImages,
+            })
+            return renderer
+        },
+        renderOptions: {
+            width,
+            height,
+            format,
+            devicePixelRatio,
+            ...renderOptions,
+        },
+        content: (props) => content(texts(props), { svgs: svgNodes }),
+    }
+}
+
+export const withPresetId = <
+    const TPropsSchema extends PresetPropsSchema,
+    const TTexts extends Texts,
+    const TSvgs extends readonly DefinePresetSvgImageOptions[],
+>(
+    preset: DefinedOgImagePreset<TPropsSchema, TTexts, TSvgs>,
     slug: string,
 ): OgImagePreset => ({
     ...preset,
     slug,
+    texts: preset.texts as (props: unknown) => Texts,
     fontText: preset.fontText as (props: unknown) => string,
     content: preset.content as (props: unknown) => Node,
 })

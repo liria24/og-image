@@ -1,5 +1,4 @@
-import init, { Renderer } from '@takumi-rs/wasm'
-import wasmModule from '@takumi-rs/wasm/next'
+import type { Renderer } from '@takumi-rs/wasm'
 import { googleFont } from 'takumi-js/helpers'
 import type { GoogleFontOptions } from 'takumi-js/helpers'
 
@@ -7,11 +6,6 @@ const RENDER_TIMEOUT_MS = 15_000 // 15 seconds
 const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2'
 const GOOGLE_FONTS_USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-const resolved = await wasmModule
-const module =
-    resolved && typeof resolved === 'object' && 'default' in resolved ? resolved.default : resolved
-await init({ module_or_path: module })
 
 type RenderPng = (descriptor: OgImageDescriptor, context?: RenderContext) => Promise<Uint8Array>
 type FontOptions = Omit<GoogleFontOptions, 'text'>
@@ -172,21 +166,14 @@ export const renderDescriptor = async (
 
     if (context.signal?.aborted) throw new Error('Render aborted')
 
-    const renderer = new Renderer({
-        loadDefaultFonts: false,
-        persistentImages: preset.persistentImages,
-    })
-    try {
-        await loadFontsForText(
-            renderer,
-            preset.fonts,
-            preset.fontText(descriptor.props),
-            context.signal,
-        )
-        return renderer.render(preset.content(descriptor.props), preset.renderOptions)
-    } finally {
-        renderer.free()
-    }
+    const renderer = preset.getRenderer()
+    await loadFontsForText(
+        renderer,
+        preset.fonts,
+        preset.fontText(descriptor.props),
+        context.signal,
+    )
+    return renderer.render(preset.content(descriptor.props), preset.renderOptions)
 }
 
 export const pngBytes = (png: ArrayBuffer | ArrayBufferView) =>
