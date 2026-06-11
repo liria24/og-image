@@ -14,6 +14,7 @@ type PresetRenderOptions = Omit<RenderOptions, 'width' | 'height' | 'format' | '
 type PresetPropsSchema = GenericSchema
 type TextValue = string | null | undefined | false
 type Texts = Record<string, TextValue>
+export type UnicodeRange = readonly [start: number, end: number]
 type SvgImageKey<T> = T extends { src: infer TSrc extends string } ? TSrc : string
 type SvgImageNodes<TSvgs extends readonly DefinePresetSvgImageOptions[]> = {
     readonly [TSvg in TSvgs[number] as SvgImageKey<TSvg['src']>]: ImageNode
@@ -22,6 +23,7 @@ type SvgImageNodes<TSvgs extends readonly DefinePresetSvgImageOptions[]> = {
 export interface GoogleFontConfig {
     family: string
     options?: Omit<import('takumi-js/helpers').GoogleFontOptions, 'text'>
+    unicodeRanges?: readonly UnicodeRange[]
 }
 
 interface SvgImageAsset {
@@ -88,6 +90,27 @@ type DefinedOgImagePreset<
     fontText: (props: InferOutput<TPropsSchema>) => string
     content: (props: InferOutput<TPropsSchema>) => Node
 }
+
+const JAPANESE_UNICODE_RANGES = [
+    [0x3000, 0x303f],
+    [0x3040, 0x309f],
+    [0x30a0, 0x30ff],
+    [0x4e00, 0x9fff],
+] as const satisfies readonly UnicodeRange[]
+
+const DEFAULT_GOOGLE_FONT_UNICODE_RANGES = new Map<string, readonly UnicodeRange[]>([
+    ['Noto Sans JP', JAPANESE_UNICODE_RANGES],
+])
+
+const normalizeGoogleFontConfig = (font: GoogleFontConfig): GoogleFontConfig => {
+    if (font.unicodeRanges !== undefined) return font
+
+    const unicodeRanges = DEFAULT_GOOGLE_FONT_UNICODE_RANGES.get(font.family)
+    return unicodeRanges ? { ...font, unicodeRanges } : font
+}
+
+const normalizeGoogleFontConfigs = (fonts: readonly GoogleFontConfig[]) =>
+    fonts.map((font) => normalizeGoogleFontConfig(font))
 
 const normalizeFontText = (texts: Texts) =>
     Object.values(texts)
@@ -172,6 +195,7 @@ export const definePreset = <
     const {
         texts,
         content,
+        fonts: configuredFonts,
         svgs = [] as unknown as TSvgs,
         width = 1200,
         height = 630,
@@ -182,6 +206,7 @@ export const definePreset = <
         ...preset
     } = options
 
+    const fonts = normalizeGoogleFontConfigs(configuredFonts)
     const svgImages = svgs.map(({ src, ...svg }) => defineSvgImage(src, svg))
     const svgNodes = Object.fromEntries(
         svgImages.map((svg) => [svg.key, svg.node]),
@@ -191,7 +216,8 @@ export const definePreset = <
 
     return {
         ...preset,
-        version: createVersion(options),
+        fonts,
+        version: createVersion({ ...options, fonts }),
         texts,
         fontText: (props) => normalizeFontText(texts(props)),
         getRenderer: () => {
