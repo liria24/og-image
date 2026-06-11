@@ -1,7 +1,5 @@
 import * as v from 'valibot'
 
-import { images } from '#images'
-
 export default definePreset({
     props: v.object({
         title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
@@ -17,7 +15,7 @@ export default definePreset({
             options: { weight: '100..900' },
         },
     ],
-    svgs: [
+    svgs: (images) => [
         {
             src: images.avatio,
             color: '#18181b',

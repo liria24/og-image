@@ -2,6 +2,8 @@ import type { Renderer } from '@takumi-rs/wasm'
 import { googleFont } from 'takumi-js/helpers'
 import type { GoogleFontOptions } from 'takumi-js/helpers'
 
+import type { GoogleFontConfig, UnicodeRange } from './definePreset'
+
 const RENDER_TIMEOUT_MS = 15_000 // 15 seconds
 const GOOGLE_FONTS_CSS_URL = 'https://fonts.googleapis.com/css2'
 const GOOGLE_FONTS_USER_AGENT =
@@ -9,7 +11,6 @@ const GOOGLE_FONTS_USER_AGENT =
 
 type RenderPng = (descriptor: OgImageDescriptor, context?: RenderContext) => Promise<Uint8Array>
 type FontOptions = Omit<GoogleFontOptions, 'text'>
-type UnicodeRange = readonly [start: number, end: number]
 
 export interface RenderContext {
     signal?: AbortSignal
@@ -63,7 +64,7 @@ const getGoogleFontRanges = async (
     family: string,
     options: FontOptions | undefined,
     signal?: AbortSignal,
-) => {
+): Promise<readonly UnicodeRange[]> => {
     const response = await fetch(buildGoogleFontsUrl(family, options), {
         headers: { 'User-Agent': GOOGLE_FONTS_USER_AGENT },
         signal,
@@ -87,6 +88,19 @@ const isCharacterSupported = (character: string, ranges: readonly UnicodeRange[]
 const getUniqueFontCharacters = (text: string) =>
     Array.from(new Set(Array.from(text).filter((character) => character.trim())))
 
+const hasExplicitUnicodeRanges = (
+    config: GoogleFontConfig,
+): config is GoogleFontConfig & { unicodeRanges: readonly UnicodeRange[] } =>
+    config.unicodeRanges !== undefined
+
+const getFontRanges = async (
+    config: GoogleFontConfig,
+    signal?: AbortSignal,
+): Promise<readonly UnicodeRange[]> =>
+    hasExplicitUnicodeRanges(config)
+        ? config.unicodeRanges
+        : getGoogleFontRanges(config.family, config.options, signal)
+
 const loadGoogleFont = async (
     renderer: Renderer,
     config: GoogleFontConfig,
@@ -101,7 +115,7 @@ const loadGoogleFont = async (
     for (const descriptor of descriptors) await renderer.loadFont(descriptor, signal)
 }
 
-const loadFontsForText = async (
+export const loadFontsForText = async (
     renderer: Renderer,
     fonts: readonly GoogleFontConfig[],
     text: string,
@@ -113,13 +127,26 @@ const loadFontsForText = async (
     const unsupportedCharacters: string[] = []
 
     for (const character of characters) {
-        const font = fonts.find((config) => {
+        const explicitFont = fonts.find(
+            (config) =>
+                hasExplicitUnicodeRanges(config) &&
+                isCharacterSupported(character, config.unicodeRanges),
+        )
+
+        if (explicitFont) {
+            textByFont.set(explicitFont, [...(textByFont.get(explicitFont) ?? []), character])
+            continue
+        }
+
+        const cachedFont = fonts.find((config) => {
+            if (hasExplicitUnicodeRanges(config)) return false
+
             const fontRanges = ranges.get(config)
             return fontRanges && isCharacterSupported(character, fontRanges)
         })
 
-        if (font) {
-            textByFont.set(font, [...(textByFont.get(font) ?? []), character])
+        if (cachedFont) {
+            textByFont.set(cachedFont, [...(textByFont.get(cachedFont) ?? []), character])
             continue
         }
 
@@ -128,7 +155,7 @@ const loadFontsForText = async (
         for (const config of fonts) {
             let fontRanges = ranges.get(config)
             if (!fontRanges) {
-                fontRanges = await getGoogleFontRanges(config.family, config.options, signal)
+                fontRanges = await getFontRanges(config, signal)
                 ranges.set(config, fontRanges)
             }
 
