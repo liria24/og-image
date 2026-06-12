@@ -8,19 +8,30 @@ import { presetType, writeGeneratedTypes } from './scripts/generated-types.ts'
 writeGeneratedTypes()
 
 export default defineConfig({
-    entry: ['src/client.ts'],
+    entry: [
+        'src/client.ts',
+        'src/nuxt.ts',
+        'src/runtime/app/composables/useOgImage.ts',
+        'src/runtime/server/api/og-image.post.ts',
+        'src/runtime/server/api/og-image.delete.ts',
+    ],
     format: 'esm',
     dts: true,
     clean: true,
+    deps: {
+        neverBundle: ['#imports'],
+    },
     onSuccess: () => {
-        const dtsPath = fileURLToPath(new URL('./dist/client.d.mts', import.meta.url))
-        const dts = readFileSync(dtsPath, 'utf8')
-        writeFileSync(
-            dtsPath,
-            dts.replace(
-                /import(?: type)? \{ Preset \} from ['"]#presets['"];?/,
-                `type Preset = ${presetType()};`,
-            ),
-        )
+        for (const path of ['./dist/client.d.mts', './dist/nuxt.d.mts']) {
+            const dtsPath = fileURLToPath(new URL(path, import.meta.url))
+            const dts = readFileSync(dtsPath, 'utf8')
+            writeFileSync(
+                dtsPath,
+                dts.replace(
+                    /import(?: type)? \{ Preset \} from ['"]#presets['"];?/,
+                    `type Preset = ${presetType()};`,
+                ),
+            )
+        }
     },
 })
