@@ -49,9 +49,9 @@
         "ofetch": "^2.0.0-alpha.3"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20260610.1",
-        "@nuxt/kit": "^4.0.0",
-        "@nuxt/schema": "^4.0.0",
+        "@cloudflare/workers-types": "^4.20260612.1",
+        "@nuxt/kit": "^4.4.8",
+        "@nuxt/schema": "^4.4.8",
         "@types/node": "^25.9.3",
         "bumpp": "^11.1.0",
         "http-status-codes": "^2.3.0",
@@ -59,13 +59,13 @@
         "oxfmt": "^0.54.0",
         "oxlint": "^1.69.0",
         "oxlint-tsgolint": "^0.23.0",
-        "takumi-js": "^1.8.1",
+        "takumi-js": "^1.8.3",
         "taze": "^19.14.1",
         "tsdown": "^0.22.2",
         "typescript": "6.0.3",
         "valibot": "^1.4.1",
         "vitest": "^4.1.8",
-        "wrangler": "^4.99.0"
+        "wrangler": "^4.100.0"
     },
     "peerDependencies": {
         "@nuxt/kit": ">=3.0.0",
