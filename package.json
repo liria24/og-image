@@ -19,6 +19,10 @@
         ".": {
             "import": "./dist/client.mjs",
             "types": "./dist/client.d.mts"
+        },
+        "./nuxt": {
+            "import": "./dist/nuxt.mjs",
+            "types": "./dist/nuxt.d.mts"
         }
     },
     "publishConfig": {
@@ -46,6 +50,8 @@
     },
     "devDependencies": {
         "@cloudflare/workers-types": "^4.20260610.1",
+        "@nuxt/kit": "^4.0.0",
+        "@nuxt/schema": "^4.0.0",
         "@types/node": "^25.9.3",
         "bumpp": "^11.1.0",
         "http-status-codes": "^2.3.0",
@@ -60,5 +66,17 @@
         "valibot": "^1.4.1",
         "vitest": "^4.1.8",
         "wrangler": "^4.99.0"
+    },
+    "peerDependencies": {
+        "@nuxt/kit": ">=3.0.0",
+        "@nuxt/schema": ">=3.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@nuxt/kit": {
+            "optional": true
+        },
+        "@nuxt/schema": {
+            "optional": true
+        }
     }
 }
