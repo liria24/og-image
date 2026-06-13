@@ -49,17 +49,19 @@ export type RevokeResponse = RevokeByImageIdResponse | RevokeByPresetResponse
 
 const defaultEndpoint = 'https://og.liria.me'
 
+const resolveEndpoint = (endpoint: string | undefined) => endpoint?.trim() || defaultEndpoint
+
 const imageIdPathSegment = (imageId: string) =>
     `${encodeURIComponent(imageId.replace(/\.png$/i, ''))}.png`
 
 export const request = async <TProps = unknown>({
     preset,
     props,
-    endpoint = defaultEndpoint,
+    endpoint,
     secret = process.env.OG_IMAGE_SECRET || '',
 }: RequestOptions<TProps>) =>
     ofetch<IssueImageResponse>(`/images/${encodeURIComponent(preset)}`, {
-        baseURL: endpoint,
+        baseURL: resolveEndpoint(endpoint),
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: { secret, props },
@@ -67,7 +69,7 @@ export const request = async <TProps = unknown>({
     })
 
 export const revoke = async (options: RevokeOptions) => {
-    const endpoint = options.endpoint ?? defaultEndpoint
+    const endpoint = resolveEndpoint(options.endpoint)
     const secret = options.secret ?? process.env.OG_IMAGE_SECRET ?? ''
     const path =
         options.imageId !== undefined

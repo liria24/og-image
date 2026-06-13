@@ -3,9 +3,12 @@ import type { Nuxt } from '@nuxt/schema'
 
 import type { Preset } from '#presets'
 
-interface RevokeOptions {
-    route?: string
-    token?: string
+interface RouteRevokeOptions {
+    requireToken?: boolean
+}
+
+interface RoutesOptions {
+    revoke?: boolean | RouteRevokeOptions
 }
 
 export interface ModuleOptions {
@@ -13,15 +16,17 @@ export interface ModuleOptions {
     endpoint?: string
     secret?: string
     route?: string
-    revoke?: boolean | RevokeOptions
-    revokeToken?: string
+    routes?: RoutesOptions
+    /**
+     * @deprecated Use routes.revoke instead.
+     */
+    revoke?: boolean
 }
 
 interface RuntimeOgImageConfig {
     endpoint?: string
     preset?: Preset
     secret?: string
-    revokeToken?: string
 }
 
 interface PublicRuntimeOgImageConfig {
@@ -37,18 +42,22 @@ interface RuntimeConfig {
 
 const defaultRoute = '/api/og-image'
 
-const normalizeRoute = (route: string | undefined) => {
-    const value = route?.trim() || defaultRoute
+const normalizeRoute = (route: string) => {
+    const value = route.trim() || defaultRoute
     return value.startsWith('/') ? value : `/${value}`
 }
 
-const resolveRevokeRoute = (route: string, revoke: ModuleOptions['revoke']) =>
-    typeof revoke === 'object' ? normalizeRoute(revoke.route ?? route) : route
+const joinRoute = (base: string, path: string) =>
+    `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
 
-const resolveRevokeToken = (options: ModuleOptions) =>
-    typeof options.revoke === 'object'
-        ? (options.revoke.token ?? options.revokeToken)
-        : options.revokeToken
+const revokeRouteOptions = (options: ModuleOptions): RouteRevokeOptions | undefined => {
+    const revoke = options.routes?.revoke
+    if (revoke === false) return undefined
+    if (revoke === true) return { requireToken: true }
+    if (revoke) return { requireToken: revoke.requireToken !== false }
+    if (options.revoke) return { requireToken: true }
+    return undefined
+}
 
 export default defineNuxtModule<ModuleOptions>({
     meta: {
@@ -56,7 +65,6 @@ export default defineNuxtModule<ModuleOptions>({
         configKey: 'ogImage',
     },
     defaults: {
-        route: defaultRoute,
         revoke: false,
     } as Partial<ModuleOptions>,
     setup(options: ModuleOptions, nuxt: Nuxt) {
@@ -64,19 +72,28 @@ export default defineNuxtModule<ModuleOptions>({
             throw new Error('@liria24/og-image/nuxt requires ogImage.preset to be configured.')
 
         const resolver = createResolver(import.meta.url)
-        const route = normalizeRoute(options.route)
+        const moduleManaged = options.route === undefined
+        const route = options.route === undefined ? defaultRoute : normalizeRoute(options.route)
+        const issueRoute = route
+        const revokeRoute = moduleManaged ? route : joinRoute(route, 'revoke')
         const runtimeConfig = nuxt.options.runtimeConfig as unknown as RuntimeConfig
+        const revokeRouteConfig = revokeRouteOptions(options)
+        const secret = options.secret ?? runtimeConfig.ogImage?.secret
+
+        if (revokeRouteConfig?.requireToken && !secret)
+            throw new Error(
+                '@liria24/og-image/nuxt requires ogImage.secret when routes.revoke.requireToken is true.',
+            )
 
         runtimeConfig.ogImage = {
             ...runtimeConfig.ogImage,
             endpoint: options.endpoint ?? runtimeConfig.ogImage?.endpoint,
             preset: options.preset,
-            secret: options.secret ?? runtimeConfig.ogImage?.secret,
-            revokeToken: resolveRevokeToken(options) ?? runtimeConfig.ogImage?.revokeToken,
+            secret,
         }
         runtimeConfig.public.ogImage = {
             ...runtimeConfig.public.ogImage,
-            route,
+            route: issueRoute,
         }
 
         addImports({
@@ -86,15 +103,19 @@ export default defineNuxtModule<ModuleOptions>({
 
         addServerHandler({
             method: 'POST',
-            route,
+            route: issueRoute,
             handler: resolver.resolve('./runtime/server/api/og-image.post'),
         })
 
-        if (options.revoke)
+        if (revokeRouteConfig)
             addServerHandler({
                 method: 'DELETE',
-                route: resolveRevokeRoute(route, options.revoke),
-                handler: resolver.resolve('./runtime/server/api/og-image.delete'),
+                route: revokeRoute,
+                handler: resolver.resolve(
+                    revokeRouteConfig.requireToken
+                        ? './runtime/server/api/og-image-secret.delete'
+                        : './runtime/server/api/og-image.delete',
+                ),
             })
     },
 })
