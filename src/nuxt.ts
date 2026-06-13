@@ -68,8 +68,8 @@ const resolveRevokeToken = (options: ModuleOptions) =>
 const revokeRouteOptions = (options: ModuleOptions): RouteRevokeOptions | undefined => {
     const revoke = options.routes?.revoke
     if (revoke === false) return undefined
-    if (revoke === true) return {}
-    if (revoke) return revoke
+    if (revoke === true) return { requireToken: true }
+    if (revoke) return { requireToken: revoke.requireToken !== false }
     if (options.revoke) return { requireToken: true }
     return undefined
 }
@@ -89,7 +89,7 @@ export default defineNuxtModule<ModuleOptions>({
         const resolver = createResolver(import.meta.url)
         const moduleManaged = options.route === undefined
         const route = options.route === undefined ? defaultRoute : normalizeRoute(options.route)
-        const issueRoute = moduleManaged ? route : joinRoute(route, 'issue')
+        const issueRoute = route
         const revokeRoute = moduleManaged ? route : joinRoute(route, 'revoke')
         const runtimeConfig = nuxt.options.runtimeConfig as unknown as RuntimeConfig
         const revokeRouteConfig = revokeRouteOptions(options)
