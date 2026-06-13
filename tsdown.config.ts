@@ -14,7 +14,7 @@ export default defineConfig({
         'src/runtime/app/composables/useOgImage.ts',
         'src/runtime/server/api/og-image.post.ts',
         'src/runtime/server/api/og-image.delete.ts',
-        'src/runtime/server/api/og-image-token.delete.ts',
+        'src/runtime/server/api/og-image-secret.delete.ts',
         'src/runtime/server/utils/ogImage.ts',
     ],
     format: 'esm',

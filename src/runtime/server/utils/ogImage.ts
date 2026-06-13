@@ -7,7 +7,6 @@ interface RuntimeConfig {
         endpoint?: string
         preset?: string
         secret?: string
-        token?: string
     }
 }
 
@@ -26,25 +25,28 @@ const ogImageConfig = () => useRuntimeConfig() as unknown as RuntimeConfig
 
 const stringValue = (value: unknown) => (typeof value === 'string' ? value : undefined)
 
-const tokenFromAuthorizationHeader = (value: string | undefined) => {
+const secretFromAuthorizationHeader = (value: string | undefined) => {
     const match = value?.match(/^Bearer\s+(.+)$/i)
     return match?.[1]?.trim()
 }
 
-const requestToken = async (event: unknown) => {
-    const authorizationToken = tokenFromAuthorizationHeader(
+const requestSecret = async (event: unknown) => {
+    const authorizationSecret = secretFromAuthorizationHeader(
         stringValue(getHeader(event, 'authorization')),
     )
-    if (authorizationToken) return authorizationToken
+    if (authorizationSecret) return authorizationSecret
 
-    const headerToken = stringValue(getHeader(event, 'x-og-image-token'))
-    if (headerToken) return headerToken
+    const headerSecret =
+        stringValue(getHeader(event, 'x-og-image-secret')) ??
+        stringValue(getHeader(event, 'x-og-image-token'))
+    if (headerSecret) return headerSecret
 
-    const queryToken = stringValue(getQuery(event).token)
-    if (queryToken) return queryToken
+    const query = getQuery(event)
+    const querySecret = stringValue(query.secret) ?? stringValue(query.token)
+    if (querySecret) return querySecret
 
     const body = await readBody(event).catch(() => undefined)
-    return isRecord(body) ? stringValue(body.token) : undefined
+    return isRecord(body) ? (stringValue(body.secret) ?? stringValue(body.token)) : undefined
 }
 
 export const issueOgImage = async (event: unknown): Promise<OgImageResponse> => {
@@ -76,13 +78,13 @@ export const revokeOgImages = async (event: unknown, options: RevokeOgImagesOpti
         throw createError({ statusCode: 500, statusMessage: 'OG image preset is not configured.' })
 
     if (options.requireToken) {
-        if (!ogImage?.token)
+        if (!ogImage?.secret)
             throw createError({
                 statusCode: 500,
-                statusMessage: 'OG image token is not configured.',
+                statusMessage: 'OG image secret is not configured.',
             })
 
-        if ((await requestToken(event)) !== ogImage.token)
+        if ((await requestSecret(event)) !== ogImage.secret)
             throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
     }
 

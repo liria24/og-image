@@ -3,10 +3,6 @@ import type { Nuxt } from '@nuxt/schema'
 
 import type { Preset } from '#presets'
 
-interface RevokeOptions {
-    token?: string
-}
-
 interface RouteRevokeOptions {
     requireToken?: boolean
 }
@@ -21,22 +17,16 @@ export interface ModuleOptions {
     secret?: string
     route?: string
     routes?: RoutesOptions
-    token?: string
     /**
-     * @deprecated Use routes.revoke and token instead.
+     * @deprecated Use routes.revoke instead.
      */
-    revoke?: boolean | RevokeOptions
-    /**
-     * @deprecated Use token instead.
-     */
-    revokeToken?: string
+    revoke?: boolean
 }
 
 interface RuntimeOgImageConfig {
     endpoint?: string
     preset?: Preset
     secret?: string
-    token?: string
 }
 
 interface PublicRuntimeOgImageConfig {
@@ -59,11 +49,6 @@ const normalizeRoute = (route: string) => {
 
 const joinRoute = (base: string, path: string) =>
     `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
-
-const resolveRevokeToken = (options: ModuleOptions) =>
-    options.token ??
-    (typeof options.revoke === 'object' ? options.revoke.token : undefined) ??
-    options.revokeToken
 
 const revokeRouteOptions = (options: ModuleOptions): RouteRevokeOptions | undefined => {
     const revoke = options.routes?.revoke
@@ -93,19 +78,18 @@ export default defineNuxtModule<ModuleOptions>({
         const revokeRoute = moduleManaged ? route : joinRoute(route, 'revoke')
         const runtimeConfig = nuxt.options.runtimeConfig as unknown as RuntimeConfig
         const revokeRouteConfig = revokeRouteOptions(options)
-        const token = resolveRevokeToken(options)
+        const secret = options.secret ?? runtimeConfig.ogImage?.secret
 
-        if (revokeRouteConfig?.requireToken && !token)
+        if (revokeRouteConfig?.requireToken && !secret)
             throw new Error(
-                '@liria24/og-image/nuxt requires ogImage.token when routes.revoke.requireToken is true.',
+                '@liria24/og-image/nuxt requires ogImage.secret when routes.revoke.requireToken is true.',
             )
 
         runtimeConfig.ogImage = {
             ...runtimeConfig.ogImage,
             endpoint: options.endpoint ?? runtimeConfig.ogImage?.endpoint,
             preset: options.preset,
-            secret: options.secret ?? runtimeConfig.ogImage?.secret,
-            token: token ?? runtimeConfig.ogImage?.token,
+            secret,
         }
         runtimeConfig.public.ogImage = {
             ...runtimeConfig.public.ogImage,
@@ -129,7 +113,7 @@ export default defineNuxtModule<ModuleOptions>({
                 route: revokeRoute,
                 handler: resolver.resolve(
                     revokeRouteConfig.requireToken
-                        ? './runtime/server/api/og-image-token.delete'
+                        ? './runtime/server/api/og-image-secret.delete'
                         : './runtime/server/api/og-image.delete',
                 ),
             })
