@@ -35,7 +35,7 @@
         "build": "bun run build:client && nitro build",
         "dev": "nitro dev",
         "preview": "wrangler --cwd .output dev",
-        "verify:direct": "bun scripts/verify-direct.ts",
+        "verify": "bun scripts/verify.ts",
         "test": "vitest run",
         "typecheck": "tsc --noEmit",
         "lint": "oxlint",

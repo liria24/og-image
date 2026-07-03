@@ -1,11 +1,14 @@
-import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
+const projectUrl = new URL('../', import.meta.url)
 const DEFAULT_HOST = 'http://localhost'
 const DEFAULT_PORT = '4000'
 const DEFAULT_TITLE = 'Takumi v2 RC'
 const DEFAULT_DESCRIPTION = 'direct route check'
+const DEFAULT_SERVER_TIMEOUT_MS = 30_000
 const EXPECTED_WIDTH = 1200
 const EXPECTED_HEIGHT = 630
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
@@ -18,20 +21,36 @@ interface CliOptions {
     description: string
     output: string
     open: boolean
+    serverTimeoutMs: number
 }
 
+const presetNames = () =>
+    readdirSync(fileURLToPath(new URL('./server/presets', projectUrl)))
+        .filter((file) => file.endsWith('.ts'))
+        .map((file) => file.slice(0, -'.ts'.length))
+        .sort((a, b) => a.localeCompare(b))
+
+const availablePresetsText = () =>
+    presetNames()
+        .map((preset) => `  - ${preset}`)
+        .join('\n')
+
 const usage = () => `Usage:
-  bun run verify:direct <preset> [--title <text>] [--description <text>] [--open]
+  bun run verify <preset> [--title <text>] [--description <text>] [--open]
 
 Examples:
-  bun run verify:direct avatio --title "Takumi v2 RC" --description "direct route check"
-  bun run verify:direct avatio --open
+  bun run verify avatio --title "Takumi v2 RC" --description "direct route check"
+  bun run verify avatio --title "Takumi v2 RC" --description "direct route check" --open
+
+Available presets:
+${availablePresetsText()}
 
 Options:
-  --host <url>          Default: ${DEFAULT_HOST}
-  --port <port>         Default: ${DEFAULT_PORT}
-  --output <path>       Default: .tmp/og-images/<preset>.png
-  --open                Open the saved PNG with the OS default app
+  --host <url>                Default: ${DEFAULT_HOST}
+  --port <port>               Default: ${DEFAULT_PORT}
+  --output <path>             Default: .tmp/og-images/<preset>.png
+  --server-timeout-ms <ms>    Default: ${DEFAULT_SERVER_TIMEOUT_MS}
+  --open                      Open the saved PNG with the OS default app
 `
 
 const takeValue = (args: string[], index: number, name: string) => {
@@ -49,6 +68,7 @@ const parseArgs = (args: string[]): CliOptions => {
         title: DEFAULT_TITLE,
         description: DEFAULT_DESCRIPTION,
         open: false,
+        serverTimeoutMs: DEFAULT_SERVER_TIMEOUT_MS,
     }
 
     for (let i = 0; i < args.length; i += 1) {
@@ -92,12 +112,26 @@ const parseArgs = (args: string[]): CliOptions => {
             case '--output':
                 options.output = value
                 break
+            case '--server-timeout-ms':
+                options.serverTimeoutMs = Number(value)
+                if (!Number.isFinite(options.serverTimeoutMs) || options.serverTimeoutMs <= 0) {
+                    throw new Error(`Invalid value for ${name}: ${value}`)
+                }
+                break
             default:
                 throw new Error(`Unknown option: ${name}`)
         }
     }
 
-    if (!options.preset) throw new Error('Preset is required')
+    if (!options.preset)
+        throw new Error(`Preset is required\n\nAvailable presets:\n${availablePresetsText()}`)
+
+    const presets = presetNames()
+    if (!presets.includes(options.preset)) {
+        throw new Error(
+            `Unknown preset: ${options.preset}\n\nAvailable presets:\n${availablePresetsText()}`,
+        )
+    }
 
     return {
         ...options,
@@ -111,6 +145,71 @@ const directRouteUrl = ({ description, host, port, preset, title }: CliOptions) 
     url.searchParams.set('title', title)
     if (description) url.searchParams.set('description', description)
     return url
+}
+
+const healthUrl = ({ host, port }: CliOptions) =>
+    new URL('/health', `${host.replace(/\/$/, '')}:${port}`)
+
+const fetchOk = async (url: URL) => {
+    try {
+        const response = await fetch(url)
+        return response.ok
+    } catch {
+        return false
+    }
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const waitForServer = async (options: CliOptions, server?: ChildProcess) => {
+    const startedAt = Date.now()
+    const url = healthUrl(options)
+
+    while (Date.now() - startedAt < options.serverTimeoutMs) {
+        if (await fetchOk(url)) return
+        if (server && server.exitCode !== null) {
+            throw new Error(`Dev server exited early with code ${server.exitCode}`)
+        }
+        await delay(250)
+    }
+
+    throw new Error(`Timed out waiting for dev server at ${url.toString()}`)
+}
+
+const startDevServer = (options: CliOptions) => {
+    const cwd = fileURLToPath(projectUrl)
+    const server = spawn('bun', ['run', 'dev', '--', '--port', options.port], {
+        cwd,
+        env: {
+            ...process.env,
+            WRANGLER_WRITE_LOGS: 'false',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+    })
+
+    server.stdout.on('data', (data) => process.stdout.write(data))
+    server.stderr.on('data', (data) => process.stderr.write(data))
+
+    return server
+}
+
+const stopDevServer = async (server: ChildProcess) => {
+    if (server.exitCode !== null) return
+
+    if (process.platform === 'win32' && server.pid) {
+        await new Promise<void>((resolve) => {
+            const taskkill = spawn('taskkill', ['/pid', String(server.pid), '/t', '/f'], {
+                stdio: 'ignore',
+                windowsHide: true,
+            })
+            taskkill.on('close', () => resolve())
+            taskkill.on('error', () => resolve())
+        })
+        return
+    }
+
+    server.kill()
 }
 
 const readPngSize = (bytes: Uint8Array) => {
@@ -142,10 +241,21 @@ const openFile = (path: string) => {
     child.unref()
 }
 
+let devServer: ChildProcess | undefined
+
 try {
     const options = parseArgs(process.argv.slice(2))
-    const url = directRouteUrl(options)
+    const alreadyRunning = await fetchOk(healthUrl(options))
 
+    if (alreadyRunning) {
+        console.info(`Using existing dev server at ${healthUrl(options).origin}`)
+    } else {
+        console.info(`Starting dev server at ${healthUrl(options).origin}`)
+        devServer = startDevServer(options)
+        await waitForServer(options, devServer)
+    }
+
+    const url = directRouteUrl(options)
     console.info(`Fetching ${url.toString()}`)
     const response = await fetch(url)
     if (!response.ok) {
@@ -173,5 +283,7 @@ try {
     }
 } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
-    process.exit(1)
+    process.exitCode = 1
+} finally {
+    if (devServer) await stopDevServer(devServer)
 }
