@@ -1,31 +1,29 @@
 import { createHash } from 'node:crypto'
 
 import { Renderer } from '@takumi-rs/wasm'
-import type {
-    ImageNode,
-    ImageSource,
-    ConstructRendererOptions,
-    Node,
-    RenderOptions,
-} from 'takumi-js/wasm'
+import type { GoogleFontFamily, GoogleFontsOptions } from 'takumi-js/helpers'
+import type { ImageLoader, ImageNode, Node, RenderOptions } from 'takumi-js/wasm'
 import type { GenericSchema, InferOutput } from 'valibot'
 
 import { images as importImages } from '#images'
 
-type PresetRenderOptions = Omit<RenderOptions, 'width' | 'height' | 'format' | 'devicePixelRatio'>
+type PresetRenderOptions = Omit<
+    RenderOptions,
+    'width' | 'height' | 'format' | 'devicePixelRatio' | 'fonts' | 'images'
+>
 type PresetPropsSchema = GenericSchema
 type TextValue = string | null | undefined | false
 type Texts = Record<string, TextValue>
-export type UnicodeRange = readonly [start: number, end: number]
 type SvgImageKey<T> = T extends { src: infer TSrc extends string } ? TSrc : string
 type SvgImageNodes<TSvgs extends readonly DefinePresetSvgImageOptions[]> = {
     readonly [TSvg in TSvgs[number] as SvgImageKey<TSvg['src']>]: ImageNode
 }
+type GoogleFontFamilyOptions = Omit<Extract<GoogleFontFamily, { name: string }>, 'name'>
+type GoogleFontRequestOptions = Pick<GoogleFontsOptions, 'baseUrl' | 'display'>
 
 export interface GoogleFontConfig {
     family: string
-    options?: Omit<import('takumi-js/helpers').GoogleFontOptions, 'text'>
-    unicodeRanges?: readonly UnicodeRange[]
+    options?: GoogleFontFamilyOptions & GoogleFontRequestOptions
 }
 
 interface SvgImageAsset {
@@ -59,7 +57,7 @@ interface DefinePresetOptions<
     height?: number
     format?: RenderOptions['format']
     devicePixelRatio?: number
-    persistentImages?: ConstructRendererOptions['persistentImages']
+    images?: readonly ImageLoader[]
     renderOptions?: PresetRenderOptions
 }
 
@@ -76,9 +74,9 @@ export interface OgImagePreset {
     props: PresetPropsSchema
     fonts: readonly GoogleFontConfig[]
     texts: (props: unknown) => Texts
-    fontText: (props: unknown) => string
     getRenderer: () => Renderer
     renderOptions: PresetRenderConfig
+    images: readonly ImageLoader[]
     content: (props: unknown) => Node
 }
 
@@ -86,38 +84,11 @@ type DefinedOgImagePreset<
     TPropsSchema extends PresetPropsSchema,
     TTexts extends Texts,
     _TSvgs extends readonly DefinePresetSvgImageOptions[],
-> = Omit<OgImagePreset, 'slug' | 'props' | 'texts' | 'fontText' | 'content'> & {
+> = Omit<OgImagePreset, 'slug' | 'props' | 'texts' | 'content'> & {
     props: TPropsSchema
     texts: (props: InferOutput<TPropsSchema>) => TTexts
-    fontText: (props: InferOutput<TPropsSchema>) => string
     content: (props: InferOutput<TPropsSchema>) => Node
 }
-
-const JAPANESE_UNICODE_RANGES = [
-    [0x3000, 0x303f],
-    [0x3040, 0x309f],
-    [0x30a0, 0x30ff],
-    [0x4e00, 0x9fff],
-] as const satisfies readonly UnicodeRange[]
-
-const DEFAULT_GOOGLE_FONT_UNICODE_RANGES = new Map<string, readonly UnicodeRange[]>([
-    ['Noto Sans JP', JAPANESE_UNICODE_RANGES],
-])
-
-const normalizeGoogleFontConfig = (font: GoogleFontConfig): GoogleFontConfig => {
-    if (font.unicodeRanges !== undefined) return font
-
-    const unicodeRanges = DEFAULT_GOOGLE_FONT_UNICODE_RANGES.get(font.family)
-    return unicodeRanges ? { ...font, unicodeRanges } : font
-}
-
-const normalizeGoogleFontConfigs = (fonts: readonly GoogleFontConfig[]) =>
-    fonts.map((font) => normalizeGoogleFontConfig(font))
-
-const normalizeFontText = (texts: Texts) =>
-    Object.values(texts)
-        .filter((text): text is string => Boolean(text))
-        .join('\n')
 
 const stableValue = (value: unknown): unknown => {
     if (typeof value === 'function') return value.toString()
@@ -173,7 +144,7 @@ const withSvgRootColor = (svg: string, color: string) => {
 const defineSvgImage = <const TAsset extends SvgImageAsset>(
     asset: TAsset,
     { color, height, id = asset.src, width }: Omit<DefinePresetSvgImageOptions, 'src'>,
-): { key: SvgImageKey<TAsset>; image: ImageSource; node: ImageNode } => ({
+): { key: SvgImageKey<TAsset>; image: ImageLoader; node: ImageNode } => ({
     key: asset.src as SvgImageKey<TAsset>,
     image: {
         src: id,
@@ -203,30 +174,25 @@ export const definePreset = <
         height = 630,
         format = 'png',
         devicePixelRatio = 1,
-        persistentImages = [],
+        images = [],
         renderOptions,
         ...preset
     } = options
 
-    const fonts = normalizeGoogleFontConfigs(configuredFonts)
     const svgImages = svgs(importImages).map(({ src, ...svg }) => defineSvgImage(src, svg))
     const svgNodes = Object.fromEntries(
         svgImages.map((svg) => [svg.key, svg.node]),
     ) as SvgImageNodes<TSvgs>
-    const allPersistentImages = [...persistentImages, ...svgImages.map((svg) => svg.image)]
+    const renderImages = [...images, ...svgImages.map((svg) => svg.image)]
     let renderer: Renderer | undefined
 
     return {
         ...preset,
-        fonts,
-        version: createVersion({ ...options, fonts }),
+        fonts: configuredFonts,
+        version: createVersion(options),
         texts,
-        fontText: (props) => normalizeFontText(texts(props)),
         getRenderer: () => {
-            renderer ??= new Renderer({
-                loadDefaultFonts: false,
-                persistentImages: allPersistentImages,
-            })
+            renderer ??= new Renderer()
             return renderer
         },
         renderOptions: {
@@ -236,6 +202,7 @@ export const definePreset = <
             devicePixelRatio,
             ...renderOptions,
         },
+        images: renderImages,
         content: (props) => content(texts(props), { svgs: svgNodes }),
     }
 }
@@ -251,6 +218,5 @@ export const withPresetId = <
     ...preset,
     slug,
     texts: preset.texts as (props: unknown) => Texts,
-    fontText: preset.fontText as (props: unknown) => string,
     content: preset.content as (props: unknown) => Node,
 })

@@ -3,6 +3,7 @@ dist
 .data
 .nitro
 .cache
+.tmp
 .output
 .env
 .env.*
